@@ -5,6 +5,7 @@ import SwiftUI
 final class NotchController {
     static let shared = NotchController()
     static let defaultsKey = "notch"
+    static let meterKey = "notchMeter"   // "session" | "weekly" | "fable"
 
     private var panel: NSPanel?
     private var observer: Any?
@@ -69,6 +70,7 @@ struct NotchView: View {
     @EnvironmentObject var model: UsageModel
     var notchWidth: CGFloat
     var notchHeight: CGFloat
+    @AppStorage(NotchController.meterKey) private var meterKind = "session"
     @State private var expanded = false
 
     private let pillWidth: CGFloat = 66
@@ -79,9 +81,9 @@ struct NotchView: View {
         VStack(spacing: 0) {
             // Collapsed strip: one glance gauge each side of the physical notch.
             HStack(spacing: 0) {
-                mini(providers.first?.meters.first).frame(width: pillWidth)
+                mini(glance(providers.first)).frame(width: pillWidth)
                 Spacer().frame(width: notchWidth)
-                mini(providers.dropFirst().first?.meters.first).frame(width: pillWidth)
+                mini(glance(providers.dropFirst().first)).frame(width: pillWidth)
             }
             .frame(height: notchHeight)
 
@@ -115,6 +117,12 @@ struct NotchView: View {
 
     private func providerColumn(_ p: ProviderUsage) -> some View {
         ProviderTiles(provider: p, ring: 58, lineWidth: 5.5, spacing: 12)
+    }
+
+    /// The meter chosen in settings, or the provider's first meter if it has none of that kind (e.g. ChatGPT has no Fable).
+    private func glance(_ p: ProviderUsage?) -> Meter? {
+        guard let p else { return nil }
+        return p.meters.first { $0.id == "\(p.id).\(meterKind)" } ?? p.meters.first
     }
 
     @ViewBuilder

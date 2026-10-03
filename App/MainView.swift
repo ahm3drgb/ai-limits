@@ -149,6 +149,7 @@ struct UpdatedFooter: View {
 struct MenuPanel: View {
     @EnvironmentObject var model: UsageModel
     @AppStorage(NotchController.defaultsKey) private var notch = false
+    @AppStorage(NotchController.meterKey) private var notchMeter = "session"
     @AppStorage(UsageModel.menuBarMeterKey) private var menuBarMeter = "claude.session"
     @AppStorage(UsageModel.refreshKey) private var refreshMinutes = 2
     @State private var openAtLogin = SMAppService.mainApp.status == .enabled
@@ -166,6 +167,17 @@ struct MenuPanel: View {
             VStack(spacing: 10) {
                 SettingRow("Show in notch") {
                     Toggle("", isOn: $notch).onChange(of: notch) { _ in NotchController.shared.update() }
+                }
+                if notch {
+                    Picker("", selection: $notchMeter) {
+                        Text("Session").tag("session")
+                        Text("Weekly").tag("weekly")
+                        Text("Fable").tag("fable")
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
                 SettingRow("Floating window") {
                     Button("Open") {
