@@ -145,6 +145,9 @@ struct MeterBarRow: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(meter.label).font(.system(size: compact ? 11 : 13, weight: .semibold))
                 Spacer()
+                if compact {
+                    Text(resetText(meter.resetsAt)).font(.system(size: 10)).foregroundStyle(.tertiary)
+                }
                 Text("\(Int(meter.percent.rounded()))%")
                     .font(.system(size: compact ? 12 : 15, weight: .bold, design: .rounded)).monospacedDigit()
             }

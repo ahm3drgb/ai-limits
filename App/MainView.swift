@@ -123,46 +123,6 @@ struct IconButton: View {
     }
 }
 
-/// Labeled capsule button for the popover footer.
-struct PillButton: View {
-    var title: String
-    var icon: String
-    var active = false
-    var action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            Label(title, systemImage: icon)
-                .font(.system(size: 11, weight: .semibold))
-                .padding(.horizontal, 10)
-                .frame(height: 26)
-                .background(Capsule().fill(active ? Palette.color(for: "claude.session").opacity(0.18) : .white.opacity(0.06)))
-                .overlay(Capsule().strokeBorder(active ? Palette.color(for: "claude.session").opacity(0.5) : .white.opacity(0.08)))
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(active ? Palette.color(for: "claude.session") : .primary)
-    }
-}
-
-/// Registers the app as a login item via SMAppService.
-struct LaunchAtLoginToggle: View {
-    @State private var enabled = SMAppService.mainApp.status == .enabled
-    var body: some View {
-        Toggle("Open at login", isOn: Binding(get: { enabled }, set: { on in
-            do {
-                if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
-            } catch {
-                NSLog("Launch at login failed: \(error)")
-            }
-            enabled = SMAppService.mainApp.status == .enabled
-        }))
-        .toggleStyle(.switch)
-        .controlSize(.mini)
-        .font(.system(size: 11))
-        .foregroundStyle(.secondary)
-    }
-}
-
 struct RefreshButton: View {
     @EnvironmentObject var model: UsageModel
     var body: some View {
@@ -184,44 +144,92 @@ struct UpdatedFooter: View {
     }
 }
 
-// MARK: - Menu bar popover
+// MARK: - Menu bar popover (usage summary + settings)
 
 struct MenuPanel: View {
     @EnvironmentObject var model: UsageModel
     @AppStorage("style") private var style: DisplayStyle = .rings
     @AppStorage(NotchController.defaultsKey) private var notch = false
+    @AppStorage(UsageModel.menuBarMeterKey) private var menuBarMeter = "claude.session"
+    @AppStorage(UsageModel.refreshKey) private var refreshMinutes = 2
+    @State private var openAtLogin = SMAppService.mainApp.status == .enabled
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
                 Text("AI Limits").font(.system(size: 14, weight: .bold))
                 Spacer()
-                StylePicker(style: $style)
                 RefreshButton()
             }
-            Dashboard(style: style, width: 340)
-            HStack {
-                LaunchAtLoginToggle()
-                Spacer()
-                UpdatedFooter()
+            Dashboard(style: .bars, width: 320, compact: true)
+            Divider()
+            VStack(spacing: 10) {
+                SettingRow("Window style") { StylePicker(style: $style) }
+                SettingRow("Show in notch") {
+                    Toggle("", isOn: $notch).onChange(of: notch) { _ in NotchController.shared.update() }
+                }
+                SettingRow("Floating window") {
+                    Button("Open") {
+                        openWindow(id: "main")
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
+                }
+                SettingRow("Menu bar shows") {
+                    Picker("", selection: $menuBarMeter) {
+                        Text("Icon only").tag("")
+                        ForEach(model.snapshot.providers) { p in
+                            ForEach(p.meters) { m in Text("\(p.name) \(m.label)").tag(m.id) }
+                        }
+                    }
+                    .fixedSize()
+                }
+                SettingRow("Refresh every") {
+                    Picker("", selection: $refreshMinutes) {
+                        ForEach([1, 2, 5, 15], id: \.self) { Text("\($0) min").tag($0) }
+                    }
+                    .fixedSize()
+                    .onChange(of: refreshMinutes) { _ in model.scheduleRefresh() }
+                }
+                SettingRow("Open at login") {
+                    Toggle("", isOn: Binding(get: { openAtLogin }, set: { on in
+                        do {
+                            if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                        } catch {
+                            NSLog("Open at login failed: \(error)")
+                        }
+                        openAtLogin = SMAppService.mainApp.status == .enabled
+                    }))
+                }
             }
-            HStack(spacing: 6) {
-                PillButton(title: "Notch", icon: "rectangle.topthird.inset.filled", active: notch) {
-                    notch.toggle()
-                    NotchController.shared.update()
-                }
-                PillButton(title: "Window", icon: "macwindow.on.rectangle") {
-                    openWindow(id: "main")
-                    NSApp.activate(ignoringOtherApps: true)
-                }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            Divider()
+            HStack {
+                UpdatedFooter()
                 Spacer()
-                PillButton(title: "Quit", icon: "power") { NSApp.terminate(nil) }
+                Button("Quit") { NSApp.terminate(nil) }.controlSize(.small)
             }
         }
         .padding(14)
-        .frame(width: 360)
+        .frame(width: 340)
         .preferredColorScheme(.dark)
+    }
+}
+
+struct SettingRow<Control: View>: View {
+    var title: String
+    @ViewBuilder var control: Control
+    init(_ title: String, @ViewBuilder control: () -> Control) {
+        self.title = title
+        self.control = control()
+    }
+    var body: some View {
+        HStack {
+            Text(title).font(.system(size: 12))
+            Spacer()
+            control.labelsHidden()
+        }
     }
 }
 

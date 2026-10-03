@@ -5,13 +5,14 @@ import WidgetKit
 struct AILimitsApp: App {
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @StateObject private var model = UsageModel.shared
+    @AppStorage(UsageModel.menuBarMeterKey) private var menuBarMeter = "claude.session"
 
     var body: some Scene {
         // Menu bar icon; click opens the glass dashboard.
         MenuBarExtra {
             MenuPanel().environmentObject(model)
         } label: {
-            let pct = model.snapshot.meter("claude.session").map { " \(Int($0.percent.rounded()))%" } ?? ""
+            let pct = model.snapshot.meter(menuBarMeter).map { " \(Int($0.percent.rounded()))%" } ?? ""
             Image(systemName: "gauge.with.dots.needle.33percent")
             Text(pct)
         }
@@ -46,9 +47,19 @@ final class UsageModel: ObservableObject {
     @Published var isLoading = false
     private var timer: Timer?
 
+    static let menuBarMeterKey = "menuBarMeter"
+    static let refreshKey = "refreshMinutes"
+
     private init() {
         Task { await refresh() }
-        timer = Timer.scheduledTimer(withTimeInterval: 120, repeats: true) { _ in
+        scheduleRefresh()
+    }
+
+    /// (Re)starts the auto-refresh timer using the interval from settings.
+    func scheduleRefresh() {
+        let minutes = UserDefaults.standard.object(forKey: Self.refreshKey) as? Int ?? 2
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(max(minutes, 1) * 60), repeats: true) { _ in
             Task { await UsageModel.shared.refresh() }
         }
     }
