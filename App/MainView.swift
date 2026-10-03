@@ -148,7 +148,6 @@ struct UpdatedFooter: View {
 
 struct MenuPanel: View {
     @EnvironmentObject var model: UsageModel
-    @AppStorage("style") private var style: DisplayStyle = .rings
     @AppStorage(NotchController.defaultsKey) private var notch = false
     @AppStorage(UsageModel.menuBarMeterKey) private var menuBarMeter = "claude.session"
     @AppStorage(UsageModel.refreshKey) private var refreshMinutes = 2
@@ -165,7 +164,6 @@ struct MenuPanel: View {
             Dashboard(style: .bars, width: 320, compact: true)
             Divider()
             VStack(spacing: 10) {
-                SettingRow("Window style") { StylePicker(style: $style) }
                 SettingRow("Show in notch") {
                     Toggle("", isOn: $notch).onChange(of: notch) { _ in NotchController.shared.update() }
                 }
