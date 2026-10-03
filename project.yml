@@ -1,0 +1,51 @@
+name: AILimits
+options:
+  bundleIdPrefix: com.ragab
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_HARDENED_RUNTIME: NO
+targets:
+  AILimits:
+    type: application
+    platform: macOS
+    sources: [App, Shared]
+    info:
+      path: App/Info.plist
+      properties:
+        LSUIElement: true
+        CFBundleDisplayName: AI Limits
+        CFBundleName: AI Limits
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ragab.AILimits
+        PRODUCT_NAME: AI Limits
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - target: AILimitsWidget
+  AILimitsWidget:
+    type: app-extension
+    platform: macOS
+    sources: [Widget, Shared]
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleDisplayName: AI Limits
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Widget/Widget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.temporary-exception.files.home-relative-path.read-only:
+          - /Library/Application Support/AILimits/
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ragab.AILimits.Widget
