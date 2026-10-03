@@ -154,7 +154,7 @@ struct MenuPanel: View {
     @AppStorage(NotchController.defaultsKey) private var notch = false
     @AppStorage(NotchController.meterKey) private var notchMeter = "session"
     @AppStorage(UsageModel.menuBarMeterKey) private var menuBarMeter = "claude.session"
-    @AppStorage(UsageModel.refreshKey) private var refreshMinutes = 2
+    @AppStorage(UsageModel.refreshKey) private var refreshMinutes = 20
     @State private var openAtLogin = SMAppService.mainApp.status == .enabled
     @Environment(\.openWindow) private var openWindow
 
@@ -225,7 +225,7 @@ struct MenuPanel: View {
                 }
                 SettingRow("Refresh every") {
                     Picker("", selection: $refreshMinutes) {
-                        ForEach([1, 2, 5, 15], id: \.self) { Text("\($0) min").tag($0) }
+                        ForEach([5, 10, 20, 30], id: \.self) { Text("\($0) min").tag($0) }
                     }
                     .fixedSize()
                     .onChange(of: refreshMinutes) { _ in model.scheduleRefresh() }

@@ -57,9 +57,9 @@ final class UsageModel: ObservableObject {
 
     /// (Re)starts the auto-refresh timer using the interval from settings.
     func scheduleRefresh() {
-        let minutes = UserDefaults.standard.object(forKey: Self.refreshKey) as? Int ?? 2
+        let minutes = UserDefaults.standard.object(forKey: Self.refreshKey) as? Int ?? 20
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(max(minutes, 1) * 60), repeats: true) { _ in
+        timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(max(minutes, 2) * 60), repeats: true) { _ in
             Task { await UsageModel.shared.refresh() }
         }
     }
@@ -68,7 +68,13 @@ final class UsageModel: ObservableObject {
         guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
-        let fresh = await Fetchers.fetchAll()
+        var fresh = await Fetchers.fetchAll()
+        // A failed fetch (e.g. 429 rate limit) keeps the last good numbers instead of blanking the provider.
+        fresh.providers = fresh.providers.map { p in
+            guard p.meters.isEmpty, p.error != nil, var old = snapshot.provider(p.id), !old.meters.isEmpty else { return p }
+            old.error = p.error
+            return old
+        }
         snapshot = fresh
         try? SnapshotStore.save(fresh)
         WidgetCenter.shared.reloadAllTimelines()
