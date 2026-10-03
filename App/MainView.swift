@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 
 enum DisplayStyle: String, CaseIterable, Identifiable {
     case rings = "Rings", bars = "Bars", dials = "Dials"
@@ -122,6 +123,46 @@ struct IconButton: View {
     }
 }
 
+/// Labeled capsule button for the popover footer.
+struct PillButton: View {
+    var title: String
+    var icon: String
+    var active = false
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .background(Capsule().fill(active ? Palette.color(for: "claude.session").opacity(0.18) : .white.opacity(0.06)))
+                .overlay(Capsule().strokeBorder(active ? Palette.color(for: "claude.session").opacity(0.5) : .white.opacity(0.08)))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(active ? Palette.color(for: "claude.session") : .primary)
+    }
+}
+
+/// Registers the app as a login item via SMAppService.
+struct LaunchAtLoginToggle: View {
+    @State private var enabled = SMAppService.mainApp.status == .enabled
+    var body: some View {
+        Toggle("Open at login", isOn: Binding(get: { enabled }, set: { on in
+            do {
+                if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+            } catch {
+                NSLog("Launch at login failed: \(error)")
+            }
+            enabled = SMAppService.mainApp.status == .enabled
+        }))
+        .toggleStyle(.switch)
+        .controlSize(.mini)
+        .font(.system(size: 11))
+        .foregroundStyle(.secondary)
+    }
+}
+
 struct RefreshButton: View {
     @EnvironmentObject var model: UsageModel
     var body: some View {
@@ -160,18 +201,22 @@ struct MenuPanel: View {
                 RefreshButton()
             }
             Dashboard(style: style, width: 340)
-            HStack(spacing: 4) {
-                UpdatedFooter()
+            HStack {
+                LaunchAtLoginToggle()
                 Spacer()
-                IconButton(name: "rectangle.topthird.inset.filled", help: "Show in notch", active: notch) {
+                UpdatedFooter()
+            }
+            HStack(spacing: 6) {
+                PillButton(title: "Notch", icon: "rectangle.topthird.inset.filled", active: notch) {
                     notch.toggle()
                     NotchController.shared.update()
                 }
-                IconButton(name: "macwindow.on.rectangle", help: "Open floating window") {
+                PillButton(title: "Window", icon: "macwindow.on.rectangle") {
                     openWindow(id: "main")
                     NSApp.activate(ignoringOtherApps: true)
                 }
-                IconButton(name: "power", help: "Quit") { NSApp.terminate(nil) }
+                Spacer()
+                PillButton(title: "Quit", icon: "power") { NSApp.terminate(nil) }
             }
         }
         .padding(14)
