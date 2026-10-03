@@ -88,18 +88,25 @@ struct NotchView: View {
             .frame(height: notchHeight)
 
             if expanded {
-                HStack(alignment: .top, spacing: 0) {
-                    ForEach(Array(providers.enumerated()), id: \.element.id) { i, p in
-                        if i > 0 {
-                            Rectangle().fill(.white.opacity(0.08)).frame(width: 1).padding(.vertical, 6)
-                                .padding(.horizontal, 14)
+                VStack(spacing: 10) {
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(Array(providers.enumerated()), id: \.element.id) { i, p in
+                            if i > 0 {
+                                Rectangle().fill(.white.opacity(0.08)).frame(width: 1).padding(.vertical, 6)
+                                    .padding(.horizontal, 14)
+                            }
+                            providerColumn(p)
                         }
-                        providerColumn(p)
+                    }
+                    HStack {
+                        UpdatedFooter()
+                        Spacer()
+                        RefreshButton()
                     }
                 }
                 .padding(.horizontal, 22)
                 .padding(.top, 8)
-                .padding(.bottom, 18)
+                .padding(.bottom, 12)
                 .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)).combined(with: .offset(y: -8)))
             }
         }
