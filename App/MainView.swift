@@ -147,7 +147,10 @@ struct UpdatedFooter: View {
 // MARK: - Menu bar popover (usage summary + settings)
 
 struct MenuPanel: View {
+    enum Tab { case limits, widgets }
+
     @EnvironmentObject var model: UsageModel
+    @State private var tab = Tab.limits
     @AppStorage(NotchController.defaultsKey) private var notch = false
     @AppStorage(NotchController.meterKey) private var notchMeter = "session"
     @AppStorage(UsageModel.menuBarMeterKey) private var menuBarMeter = "claude.session"
@@ -160,8 +163,34 @@ struct MenuPanel: View {
             HStack {
                 Text("AI Limits").font(.system(size: 14, weight: .bold))
                 Spacer()
+                Picker("", selection: $tab) {
+                    Text("Limits").tag(Tab.limits)
+                    Text("Widgets").tag(Tab.widgets)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
                 RefreshButton()
             }
+            if tab == .widgets {
+                WidgetsTab()
+            } else {
+                limits
+            }
+            Divider()
+            HStack {
+                UpdatedFooter()
+                Spacer()
+                Button("Quit") { NSApp.terminate(nil) }.controlSize(.small)
+            }
+        }
+        .padding(14)
+        .frame(width: 340)
+        .preferredColorScheme(.dark)
+    }
+
+    private var limits: some View {
+        VStack(alignment: .leading, spacing: 12) {
             Dashboard(style: .bars, width: 320, compact: true)
             Divider()
             VStack(spacing: 10) {
@@ -214,16 +243,7 @@ struct MenuPanel: View {
             }
             .toggleStyle(.switch)
             .controlSize(.small)
-            Divider()
-            HStack {
-                UpdatedFooter()
-                Spacer()
-                Button("Quit") { NSApp.terminate(nil) }.controlSize(.small)
-            }
         }
-        .padding(14)
-        .frame(width: 340)
-        .preferredColorScheme(.dark)
     }
 }
 
