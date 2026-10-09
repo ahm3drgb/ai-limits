@@ -49,6 +49,9 @@ struct Dashboard: View {
                                 case .bars: VStack(spacing: 14) { ForEach(p.meters) { MeterBarRow(meter: $0) } }
                                 case .dials: dials(p)
                                 }
+                                if let weekly = p.weekly, let pace = weekly.pace {
+                                    PaceBar(title: weekly.label, meter: weekly, pace: pace)
+                                }
                             }
                         }
                     }

@@ -12,6 +12,9 @@ struct ProviderUsage: Codable, Identifiable, Hashable {
     var name: String
     var meters: [Meter]
     var error: String?
+
+    /// The provider-wide weekly limit, which the pace bar tracks.
+    var weekly: Meter? { meters.first { $0.id == "\(id).weekly" } }
 }
 
 struct Snapshot: Codable, Hashable {
@@ -67,4 +70,64 @@ func resetText(_ date: Date?, now: Date = .now) -> String {
     if d > 0 { return h > 0 ? "\(d)d \(h)h" : "\(d)d" }
     if h > 0 { return "\(h)h \(m)m" }
     return "\(max(m, 1))m"
+}
+
+/// How weekly usage compares to an even spend of 100% / 7 days.
+struct Pace: Hashable {
+    enum Status: String {
+        case coasting = "Coasting"       // barely touching the budget
+        case healthy = "Healthy"         // under pace, room to spare
+        case onPace = "On pace"          // spending about one day's share per day
+        case runningHot = "Running hot"  // ahead of pace, will need to ease off
+        case slowDown = "Slow down"      // far ahead, likely to hit the limit before reset
+        case maxedOut = "Maxed out"
+    }
+
+    static let week: TimeInterval = 7 * 86400
+
+    var used: Double        // 0...100
+    var expected: Double    // where even spending would be by now, 0...100
+    var daysAhead: Double   // (used - expected) in days of budget; negative = banked
+    var perDayLeft: Double  // % per day you can spend from now until reset
+    var runsOutIn: TimeInterval?  // at the current rate, only when that's before the reset
+    var status: Status
+
+    init(percent: Double, resetsAt: Date, now: Date = .now) {
+        let left = min(max(resetsAt.timeIntervalSince(now), 0), Self.week)
+        let elapsed = Self.week - left
+        used = min(max(percent, 0), 100)
+        expected = elapsed / Self.week * 100
+        daysAhead = (used - expected) / (100 / 7)
+        perDayLeft = left > 0 ? (100 - used) / (left / 86400) : 0
+        if used > 0, elapsed > 0 {
+            let toEmpty = (100 - used) / (used / elapsed)
+            runsOutIn = toEmpty < left ? toEmpty : nil
+        }
+        status = used >= 100 ? .maxedOut
+            : daysAhead >= 1.5 ? .slowDown
+            : daysAhead >= 0.5 ? .runningHot
+            : daysAhead > -0.5 ? .onPace
+            : daysAhead > -1.5 ? .healthy
+            : .coasting
+    }
+
+    /// Used vs. what an even 14.3%/day spend allows by now.
+    var summary: String { "\(Int(used.rounded()))% used · \(Int(expected.rounded()))% allowed so far" }
+
+    /// What to do about it: when it runs out if spending too fast, otherwise the daily allowance.
+    func advice(resetsAt: Date) -> String {
+        if status == .maxedOut { return "Limit reached · resets in \(resetText(resetsAt))" }
+        if let runsOutIn, daysAhead >= 0.5 {
+            return "At this rate you run out in \(resetText(.now + runsOutIn)), reset is in \(resetText(resetsAt))"
+        }
+        return "You can use \(Int(perDayLeft.rounded()))%/day until reset in \(resetText(resetsAt))"
+    }
+}
+
+extension Meter {
+    /// Pace against a 7-day window; nil for the short session window or when the reset is unknown.
+    var pace: Pace? {
+        guard !id.hasSuffix(".session"), let resetsAt else { return nil }
+        return Pace(percent: percent, resetsAt: resetsAt)
+    }
 }

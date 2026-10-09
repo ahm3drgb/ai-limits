@@ -25,7 +25,7 @@ final class NotchController {
             notchWidth = screen.frame.width - l.width - r.width
         }
 
-        let size = CGSize(width: 760, height: notchHeight + 160)
+        let size = CGSize(width: 760, height: notchHeight + 320)
         let frame = NSRect(x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height,
                            width: size.width, height: size.height)
         let panel = NotchPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel],
@@ -37,7 +37,7 @@ final class NotchController {
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary, .ignoresCycle]
         panel.acceptsMouseMovedEvents = true
         panel.contentView = NSHostingView(rootView:
-            NotchView(notchWidth: notchWidth, notchHeight: notchHeight)
+            NotchView(notchWidth: notchWidth, notchHeight: notchHeight, panelFrame: frame)
                 .environmentObject(UsageModel.shared)
                 .frame(width: size.width, height: size.height, alignment: .top))
         panel.setFrame(frame, display: true)
@@ -70,8 +70,11 @@ struct NotchView: View {
     @EnvironmentObject var model: UsageModel
     var notchWidth: CGFloat
     var notchHeight: CGFloat
+    var panelFrame: NSRect
     @AppStorage(NotchController.meterKey) private var meterKind = "session"
     @State private var expanded = false
+    @State private var islandRect: CGRect = .zero
+    private let mouseCheck = Timer.publish(every: 0.08, on: .main, in: .common).autoconnect()
 
     private let pillWidth: CGFloat = 66
     private let ear: CGFloat = 8   // concave flare where the island meets the menu bar
@@ -98,6 +101,14 @@ struct NotchView: View {
                             providerColumn(p)
                         }
                     }
+                    .fixedSize(horizontal: false, vertical: true)  // keep the divider from stretching the island
+                    let paced = providers.compactMap { p in p.weekly.flatMap { w in w.pace.map { (p.name, w, $0) } } }
+                    if !paced.isEmpty {
+                        VStack(spacing: 10) {
+                            ForEach(paced, id: \.0) { PaceBar(title: $0.0, meter: $0.1, pace: $0.2) }
+                        }
+                        .padding(.top, 4)
+                    }
                     HStack {
                         UpdatedFooter()
                         Spacer()
@@ -116,10 +127,27 @@ struct NotchView: View {
         .background(NotchShape(ear: ear, bottomRadius: expanded ? 30 : 12).fill(.black))
         .shadow(color: .black.opacity(expanded ? 0.55 : 0), radius: 20, y: 8)
         .contentShape(NotchShape(ear: ear, bottomRadius: expanded ? 30 : 12))
-        .onHover { hovering in
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.78)) { expanded = hovering }
+        .background(GeometryReader { g in
+            Color.clear
+                .onAppear { islandRect = g.frame(in: .global) }
+                .onChange(of: g.frame(in: .global)) { _, rect in islandRect = rect }
+        })
+        .onHover { setExpanded($0) }
+        // Hover-exit is missed when the cursor leaves fast; poll the cursor so the island always closes.
+        .onReceive(mouseCheck) { _ in
+            guard expanded else { return }
+            let m = NSEvent.mouseLocation
+            let local = CGPoint(x: m.x - panelFrame.minX, y: panelFrame.maxY - m.y)
+            if !islandRect.contains(local) { setExpanded(false) }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private func setExpanded(_ open: Bool) {
+        guard open != expanded else { return }
+        withAnimation(open ? .spring(response: 0.38, dampingFraction: 0.78) : .easeOut(duration: 0.16)) {
+            expanded = open
+        }
     }
 
     private func providerColumn(_ p: ProviderUsage) -> some View {

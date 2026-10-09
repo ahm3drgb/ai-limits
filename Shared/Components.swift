@@ -20,6 +20,16 @@ enum Palette {
     static func tint(_ meter: Meter) -> Color {
         meter.percent >= 90 ? Color(red: 1.0, green: 0.33, blue: 0.36) : color(for: meter.id)
     }
+
+    static func color(for status: Pace.Status) -> Color {
+        switch status {
+        case .coasting:   return Color(red: 0.40, green: 0.78, blue: 1.00)  // calm blue
+        case .healthy:    return Color(red: 0.30, green: 0.88, blue: 0.55)  // green
+        case .onPace:     return Color(red: 0.78, green: 0.90, blue: 0.35)  // lime
+        case .runningHot: return Color(red: 1.00, green: 0.66, blue: 0.25)  // orange
+        case .slowDown, .maxedOut: return Color(red: 1.00, green: 0.33, blue: 0.36)  // red
+        }
+    }
 }
 
 // MARK: - Ring
@@ -113,6 +123,56 @@ struct Bar: View {
             }
         }
         .frame(height: height)
+    }
+}
+
+/// Weekly health: seven day-sized cells filled by usage, with a tick where even spending would be today.
+struct PaceBar: View {
+    var title: String
+    var meter: Meter
+    var pace: Pace
+    var height: CGFloat = 6
+
+    var body: some View {
+        let color = Palette.color(for: pace.status)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 5) {
+                Circle().fill(color).frame(width: 6, height: 6).shadow(color: color, radius: 3).widgetAccentable()
+                Text(pace.status.rawValue).font(.system(size: 11, weight: .bold)).foregroundStyle(color)
+                Text(title).font(.system(size: 10, weight: .medium)).foregroundStyle(.tertiary)
+                Spacer(minLength: 6)
+                Text(pace.summary).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary).monospacedDigit()
+            }
+            .lineLimit(1)
+            GeometryReader { geo in
+                let gap: CGFloat = 2
+                let cell = (geo.size.width - gap * 6) / 7
+                ZStack(alignment: .leading) {
+                    HStack(spacing: gap) {
+                        ForEach(0..<7, id: \.self) { day in
+                            let fill = min(max(pace.used / (100 / 7) - Double(day), 0), 1)
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(Color.primary.opacity(0.1))
+                                Capsule().fill(color).frame(width: cell * fill).widgetAccentable()
+                            }
+                            .frame(width: cell)
+                        }
+                    }
+                    .shadow(color: color.opacity(0.4), radius: height / 2)
+                    Capsule().fill(Color.primary.opacity(0.95))
+                        .frame(width: 2, height: height + 6)
+                        .shadow(color: .black, radius: 1)
+                        .offset(x: min(max(geo.size.width * pace.expected / 100 - 1, 0), geo.size.width - 2))
+                        .help("Even pace for today: \(Int(pace.expected.rounded()))%")
+                }
+            }
+            .frame(height: height)
+            if let resetsAt = meter.resetsAt {
+                Text(pace.advice(resetsAt: resetsAt))
+                    .font(.system(size: 9.5, weight: .medium)).foregroundStyle(.tertiary).lineLimit(1)
+                    .padding(.top, 2)
+            }
+        }
     }
 }
 
