@@ -126,7 +126,8 @@ struct Bar: View {
     }
 }
 
-/// Weekly health: seven day-sized cells filled by usage, with a tick where even spending would be today.
+/// Weekly health: seven day-sized cells filled by usage, a faint glow for what's still available today,
+/// and a tick where even spending should be by midnight.
 struct PaceBar: View {
     var title: String
     var meter: Meter
@@ -135,7 +136,7 @@ struct PaceBar: View {
 
     var body: some View {
         let color = Palette.color(for: pace.status)
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 8) {  // room for the tick, which overhangs the bar by 3pt
             HStack(spacing: 5) {
                 Circle().fill(color).frame(width: 6, height: 6).shadow(color: color, radius: 3).widgetAccentable()
                 Text(pace.status.rawValue).font(.system(size: 11, weight: .bold)).foregroundStyle(color)
@@ -151,8 +152,10 @@ struct PaceBar: View {
                     HStack(spacing: gap) {
                         ForEach(0..<7, id: \.self) { day in
                             let fill = min(max(pace.used / (100 / 7) - Double(day), 0), 1)
+                            let today = min(max(pace.todayTarget / (100 / 7) - Double(day), 0), 1)
                             ZStack(alignment: .leading) {
                                 Capsule().fill(Color.primary.opacity(0.1))
+                                Capsule().fill(color.opacity(0.3)).frame(width: cell * today)
                                 Capsule().fill(color).frame(width: cell * fill).widgetAccentable()
                             }
                             .frame(width: cell)
@@ -162,15 +165,14 @@ struct PaceBar: View {
                     Capsule().fill(Color.primary.opacity(0.95))
                         .frame(width: 2, height: height + 6)
                         .shadow(color: .black, radius: 1)
-                        .offset(x: min(max(geo.size.width * pace.expected / 100 - 1, 0), geo.size.width - 2))
-                        .help("Even pace for today: \(Int(pace.expected.rounded()))%")
+                        .offset(x: min(max(geo.size.width * pace.todayTarget / 100 - 1, 0), geo.size.width - 2))
+                        .help("On pace by midnight: \(Int(pace.todayTarget.rounded()))%")
                 }
             }
             .frame(height: height)
             if let resetsAt = meter.resetsAt {
                 Text(pace.advice(resetsAt: resetsAt))
                     .font(.system(size: 9.5, weight: .medium)).foregroundStyle(.tertiary).lineLimit(1)
-                    .padding(.top, 2)
             }
         }
     }

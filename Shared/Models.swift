@@ -89,6 +89,8 @@ struct Pace: Hashable {
     var expected: Double    // where even spending would be by now, 0...100
     var daysAhead: Double   // (used - expected) in days of budget; negative = banked
     var perDayLeft: Double  // % per day you can spend from now until reset
+    var todayTarget: Double // where even spending should be by midnight (or the reset, if sooner)
+    var leftToday: Double   // todayTarget - used; negative = over today's share
     var runsOutIn: TimeInterval?  // at the current rate, only when that's before the reset
     var status: Status
 
@@ -99,6 +101,10 @@ struct Pace: Hashable {
         expected = elapsed / Self.week * 100
         daysAhead = (used - expected) / (100 / 7)
         perDayLeft = left > 0 ? (100 - used) / (left / 86400) : 0
+        let midnight = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)) ?? now
+        let todayEnd = min(midnight, resetsAt)
+        todayTarget = min(max((Self.week - resetsAt.timeIntervalSince(todayEnd)) / Self.week * 100, 0), 100)
+        leftToday = todayTarget - used
         if used > 0, elapsed > 0 {
             let toEmpty = (100 - used) / (used / elapsed)
             runsOutIn = toEmpty < left ? toEmpty : nil
@@ -111,16 +117,20 @@ struct Pace: Hashable {
             : .coasting
     }
 
-    /// Used vs. what an even 14.3%/day spend allows by now.
-    var summary: String { "\(Int(used.rounded()))% used · \(Int(expected.rounded()))% allowed so far" }
+    /// Today's budget: how much more fits before midnight while staying on an even 14.3%/day pace.
+    var summary: String {
+        if status == .maxedOut { return "Week used up" }
+        let x = Int(abs(leftToday).rounded())
+        return leftToday >= 0.5 ? "\(x)% left today" : leftToday > -0.5 ? "Today's share used" : "\(x)% over today"
+    }
 
-    /// What to do about it: when it runs out if spending too fast, otherwise the daily allowance.
+    /// Week-level context: capacity still paid for, or when it runs out if spending too fast.
     func advice(resetsAt: Date) -> String {
         if status == .maxedOut { return "Limit reached · resets in \(resetText(resetsAt))" }
         if let runsOutIn, daysAhead >= 0.5 {
             return "At this rate you run out in \(resetText(.now + runsOutIn)), reset is in \(resetText(resetsAt))"
         }
-        return "You can use \(Int(perDayLeft.rounded()))%/day until reset in \(resetText(resetsAt))"
+        return "\(Int((100 - used).rounded()))% left this week · resets in \(resetText(resetsAt))"
     }
 }
 
