@@ -127,7 +127,7 @@ struct Bar: View {
 }
 
 /// Weekly health: seven day-sized cells filled by usage, a faint glow for what's still available today,
-/// and a tick where even spending should be by midnight.
+/// and a tick where even spending should be by the end of today's share.
 struct PaceBar: View {
     var title: String
     var meter: Meter
@@ -140,9 +140,9 @@ struct PaceBar: View {
             HStack(spacing: 5) {
                 Circle().fill(color).frame(width: 6, height: 6).shadow(color: color, radius: 3).widgetAccentable()
                 Text(pace.status.rawValue).font(.system(size: 11, weight: .bold)).foregroundStyle(color)
-                Text(title).font(.system(size: 10, weight: .medium)).foregroundStyle(.tertiary)
+                Text(title).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
                 Spacer(minLength: 6)
-                Text(pace.summary).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary).monospacedDigit()
+                Text(pace.summary).font(.system(size: 10, weight: .semibold)).foregroundStyle(.primary.opacity(0.85)).monospacedDigit()
             }
             .lineLimit(1)
             GeometryReader { geo in
@@ -166,13 +166,13 @@ struct PaceBar: View {
                         .frame(width: 2, height: height + 6)
                         .shadow(color: .black, radius: 1)
                         .offset(x: min(max(geo.size.width * pace.todayTarget / 100 - 1, 0), geo.size.width - 2))
-                        .help("On pace by midnight: \(Int(pace.todayTarget.rounded()))%")
+                        .help("On pace by \(pace.todayEnd.formatted(date: .omitted, time: .shortened)): \(Int(pace.todayTarget.rounded()))%")
                 }
             }
             .frame(height: height)
             if let resetsAt = meter.resetsAt {
                 Text(pace.advice(resetsAt: resetsAt))
-                    .font(.system(size: 9.5, weight: .medium)).foregroundStyle(.tertiary).lineLimit(1)
+                    .font(.system(size: 9.5, weight: .medium)).foregroundStyle(.secondary).lineLimit(1)
             }
         }
     }

@@ -89,7 +89,8 @@ struct Pace: Hashable {
     var expected: Double    // where even spending would be by now, 0...100
     var daysAhead: Double   // (used - expected) in days of budget; negative = banked
     var perDayLeft: Double  // % per day you can spend from now until reset
-    var todayTarget: Double // where even spending should be by midnight (or the reset, if sooner)
+    var todayEnd: Date      // next daily boundary; days roll over at the reset's time of day, not midnight
+    var todayTarget: Double // where even spending should be by todayEnd
     var leftToday: Double   // todayTarget - used; negative = over today's share
     var runsOutIn: TimeInterval?  // at the current rate, only when that's before the reset
     var status: Status
@@ -101,8 +102,7 @@ struct Pace: Hashable {
         expected = elapsed / Self.week * 100
         daysAhead = (used - expected) / (100 / 7)
         perDayLeft = left > 0 ? (100 - used) / (left / 86400) : 0
-        let midnight = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: now)) ?? now
-        let todayEnd = min(midnight, resetsAt)
+        todayEnd = resetsAt.addingTimeInterval(-max((left / 86400).rounded(.up) - 1, 0) * 86400)
         todayTarget = min(max((Self.week - resetsAt.timeIntervalSince(todayEnd)) / Self.week * 100, 0), 100)
         leftToday = todayTarget - used
         if used > 0, elapsed > 0 {
@@ -117,7 +117,7 @@ struct Pace: Hashable {
             : .coasting
     }
 
-    /// Today's budget: how much more fits before midnight while staying on an even 14.3%/day pace.
+    /// Today's budget: how much more fits before the daily boundary while staying on an even 14.3%/day pace.
     var summary: String {
         if status == .maxedOut { return "Week used up" }
         let x = Int(abs(leftToday).rounded())
