@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Black "island" fused with the MacBook notch: tiny gauges on each side, expands on hover.
+/// Black "island" fused with the MacBook notch: tiny gauges on each side, expands on click.
 @MainActor
 final class NotchController {
     static let shared = NotchController()
@@ -89,6 +89,8 @@ struct NotchView: View {
                 mini(glance(providers.dropFirst().first)).frame(width: pillWidth)
             }
             .frame(height: notchHeight)
+            .contentShape(Rectangle())
+            .onTapGesture { setExpanded(!expanded) }
 
             if expanded {
                 VStack(spacing: 10) {
@@ -132,8 +134,8 @@ struct NotchView: View {
                 .onAppear { islandRect = g.frame(in: .global) }
                 .onChange(of: g.frame(in: .global)) { _, rect in islandRect = rect }
         })
-        .onHover { setExpanded($0) }
-        // Hover-exit is missed when the cursor leaves fast; poll the cursor so the island always closes.
+        // Opens on click only, so a cursor passing through on its way to a browser tab never triggers it.
+        // Closing polls the cursor: hover-exit is missed when it leaves fast.
         .onReceive(mouseCheck) { _ in
             guard expanded else { return }
             let m = NSEvent.mouseLocation
@@ -145,7 +147,7 @@ struct NotchView: View {
 
     private func setExpanded(_ open: Bool) {
         guard open != expanded else { return }
-        withAnimation(open ? .spring(response: 0.38, dampingFraction: 0.78) : .easeOut(duration: 0.16)) {
+        withAnimation(open ? .spring(response: 0.38, dampingFraction: 0.78) : .easeOut(duration: 0.12)) {
             expanded = open
         }
     }
